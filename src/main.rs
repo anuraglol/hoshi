@@ -1,10 +1,10 @@
-use std::env;
 use std::process::Command;
 use std::thread;
 
 mod command;
 mod display;
 mod parsers;
+mod renderer;
 mod session;
 mod shell;
 mod types;
@@ -13,19 +13,7 @@ fn main() {
     let session_type = session::session_type();
     let window_manager = session::detect_window_manager();
 
-    let (
-        uname,
-        hostname,
-        os_pretty_name,
-        uptime_seconds,
-        current_charge,
-        battery_status,
-        cpu_info,
-        mem_info,
-        fp_count,
-        displays,
-        shell_info,
-    ) = thread::scope(|s| {
+    let output = thread::scope(|s| {
         let current_charge_handle =
             s.spawn(|| parsers::read_file_str("/sys/class/power_supply/BAT0/capacity"));
         let battery_status_handle =
@@ -45,11 +33,9 @@ fn main() {
         let flatpak_handle = s.spawn(|| {
             let output = Command::new("flatpak").arg("list").output();
             match output {
-                Ok(output) if output.status.success() => String::from_utf8_lossy(&output.stdout)
-                    .lines()
-                    .count()
-                    .saturating_sub(1)
-                    as u64,
+                Ok(output) if output.status.success() => {
+                    String::from_utf8_lossy(&output.stdout).lines().count() as u64
+                }
                 _ => 0,
             }
         });
@@ -57,77 +43,20 @@ fn main() {
             s.spawn(|| display::get_displays(&session_type, window_manager.as_deref()));
         let shell_handle = s.spawn(|| shell::shell_info());
 
-        (
-            uname_handle.join().unwrap(),
-            hostname_handle.join().unwrap(),
-            os_handle.join().unwrap(),
-            uptime_handle.join().unwrap(),
-            current_charge_handle.join().unwrap(),
-            battery_status_handle.join().unwrap(),
-            cpu_handle.join().unwrap(),
-            mem_handle.join().unwrap(),
-            flatpak_handle.join().unwrap(),
-            display_handle.join().unwrap(),
-            shell_handle.join().unwrap(),
-        )
+        types::Output {
+            uname: uname_handle.join().unwrap(),
+            hostname: hostname_handle.join().unwrap(),
+            os_pretty_name: os_handle.join().unwrap(),
+            uptime_seconds: uptime_handle.join().unwrap(),
+            current_charge: current_charge_handle.join().unwrap(),
+            battery_status: battery_status_handle.join().unwrap(),
+            cpu_info: cpu_handle.join().unwrap(),
+            mem_info: mem_handle.join().unwrap(),
+            fp_count: flatpak_handle.join().unwrap(),
+            displays: display_handle.join().unwrap(),
+            shell_info: shell_handle.join().unwrap(),
+        }
     });
 
-    println!("hostname: {}", hostname.trim());
-    println!("kernel: {}", uname.trim());
-    println!("os: {}", os_pretty_name);
-    println!("uptime: {} seconds", uptime_seconds.trim());
-    println!("battery: {}%, {}\n", current_charge, battery_status);
-
-    if let Some((shell, terminal)) = shell_info {
-        println!("Executed from shell: {}", shell);
-        if let Some(term) = terminal {
-            println!("Terminal Application: {}", term);
-        }
-    }
-    println!();
-
-    println!("-----CPU-----");
-    println!("model: {}", cpu_info.model_name);
-    println!("cores: {}\n", cpu_info.cpu_cores);
-
-    println!("-----Memory-----");
-    println!(
-        "memory: free/total, cached: {}/{}, {}",
-        mem_info.mem_free_kb, mem_info.mem_total_kb, mem_info.cached_kb
-    );
-    println!(
-        "swap: total, free: {}, {} kB",
-        mem_info.swap_total_kb, mem_info.swap_free_kb
-    );
-
-    println!("\n-----Session / Window Manager-----");
-    println!("session type: {}", session_type);
-    println!(
-        "desktop: {}",
-        env::var("XDG_CURRENT_DESKTOP").unwrap_or_default()
-    );
-    println!(
-        "desktop session: {}",
-        env::var("DESKTOP_SESSION").unwrap_or_default()
-    );
-    println!("DISPLAY: {}", env::var("DISPLAY").unwrap_or_default());
-    println!(
-        "WAYLAND_DISPLAY: {}",
-        env::var("WAYLAND_DISPLAY").unwrap_or_default()
-    );
-    println!(
-        "wm/compositor: {}",
-        window_manager.as_deref().unwrap_or("unknown")
-    );
-
-    println!("\n-----Display-----");
-    if displays.is_empty() {
-        println!("no display information available");
-    } else {
-        for display in displays {
-            println!("{}", display);
-        }
-    }
-
-    println!("\nflatpak packages({})", fp_count);
+    renderer::display_output(&output);
 }

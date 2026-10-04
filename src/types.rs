@@ -4,9 +4,23 @@ pub struct CpuInfo {
 }
 
 pub struct MemInfo {
-    pub mem_total_kb: u64,
-    pub mem_free_kb: u64,
-    pub cached_kb: u64,
-    pub swap_total_kb: u64,
-    pub swap_free_kb: u64,
+    pub mem_total: f64,
+    pub mem_free: f64,
+    pub cached: f64,
+    pub swap_total: f64,
+    pub swap_free: f64,
+}
+
+pub struct Output {
+    pub uname: String,
+    pub hostname: String,
+    pub os_pretty_name: String,
+    pub uptime_seconds: String,
+    pub current_charge: String,
+    pub battery_status: String,
+    pub cpu_info: CpuInfo,
+    pub mem_info: MemInfo,
+    pub fp_count: u64,
+    pub displays: Vec<String>,
+    pub shell_info: Option<(String, Option<String>)>,
 }

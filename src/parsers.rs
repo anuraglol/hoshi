@@ -34,35 +34,36 @@ pub fn parse_cpu_info(contents: &str) -> CpuInfo {
 }
 
 pub fn parse_mem_info(contents: &str) -> MemInfo {
-    let mut mem_total_kb = 0u64;
-    let mut mem_free_kb = 0u64;
-    let mut cached_kb = 0u64;
-    let mut swap_total_kb = 0u64;
-    let mut swap_free_kb = 0u64;
+    let mut mem_total = 0f64;
+    let mut mem_free = 0f64;
+    let mut cached = 0f64;
+    let mut swap_total = 0f64;
+    let mut swap_free = 0f64;
     let mut found = 0u8;
 
     for line in contents.lines() {
         if let Some((key, value)) = line.split_once(':') {
-            let value = parse_number(value.trim());
+            let value = parse_number(value.trim()) as f64 / 1024.0 / 1024.0;
+
             match key.trim() {
                 "MemTotal" => {
-                    mem_total_kb = value;
+                    mem_total = value;
                     found |= 1;
                 }
                 "MemFree" => {
-                    mem_free_kb = value;
+                    mem_free = value;
                     found |= 2;
                 }
                 "Cached" => {
-                    cached_kb = value;
+                    cached = value;
                     found |= 4;
                 }
                 "SwapTotal" => {
-                    swap_total_kb = value;
+                    swap_total = value;
                     found |= 8;
                 }
                 "SwapFree" => {
-                    swap_free_kb = value;
+                    swap_free = value;
                     found |= 16;
                 }
                 _ => {}
@@ -75,11 +76,11 @@ pub fn parse_mem_info(contents: &str) -> MemInfo {
     }
 
     MemInfo {
-        mem_total_kb,
-        mem_free_kb,
-        cached_kb,
-        swap_total_kb,
-        swap_free_kb,
+        mem_total,
+        mem_free,
+        cached,
+        swap_total,
+        swap_free,
     }
 }
 
