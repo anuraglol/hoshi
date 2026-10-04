@@ -1,56 +1,101 @@
-use std::collections::HashMap;
+use crate::types::{CpuInfo, MemInfo};
 
 pub fn read_file_str(path: &str) -> String {
     std::fs::read_to_string(path).expect("should have been able to read the file")
 }
 
-pub fn parse_colon_file(contents: &str, signal: bool) -> HashMap<String, String> {
-    let mut info = HashMap::new();
+pub fn parse_cpu_info(contents: &str) -> CpuInfo {
+    let mut model_name = String::new();
+    let mut cpu_cores = 0u32;
 
     for line in contents.lines() {
-        let mut parts = line.splitn(2, ':');
+        if let Some((key, value)) = line.split_once(':') {
+            let key = key.trim();
+            let value = value.trim();
 
-        let key = match parts.next() {
-            Some(key) => key.trim(),
-            None => continue,
-        };
+            if model_name.is_empty() && key == "model name" {
+                model_name = value.to_string();
+            } else if cpu_cores == 0 && key == "cpu cores" {
+                if let Ok(n) = value.split_whitespace().next().unwrap_or(value).parse() {
+                    cpu_cores = n;
+                }
+            }
 
-        let value = match parts.next() {
-            Some(value) => value.trim(),
-            None => continue,
-        };
-
-        info.insert(key.to_string(), value.to_string());
-        if signal {
-            if key.to_string() == "cpu cores" {
+            if !model_name.is_empty() && cpu_cores != 0 {
                 break;
             }
         }
     }
 
-    info
+    CpuInfo {
+        model_name,
+        cpu_cores,
+    }
 }
 
-pub fn parse_equals_file(contents: &str) -> HashMap<String, String> {
-    let mut info = HashMap::new();
+pub fn parse_mem_info(contents: &str) -> MemInfo {
+    let mut mem_total_kb = 0u64;
+    let mut mem_free_kb = 0u64;
+    let mut cached_kb = 0u64;
+    let mut swap_total_kb = 0u64;
+    let mut swap_free_kb = 0u64;
+    let mut found = 0u8;
 
     for line in contents.lines() {
-        let mut parts = line.splitn(2, '=');
+        if let Some((key, value)) = line.split_once(':') {
+            let value = parse_number(value.trim());
+            match key.trim() {
+                "MemTotal" => {
+                    mem_total_kb = value;
+                    found |= 1;
+                }
+                "MemFree" => {
+                    mem_free_kb = value;
+                    found |= 2;
+                }
+                "Cached" => {
+                    cached_kb = value;
+                    found |= 4;
+                }
+                "SwapTotal" => {
+                    swap_total_kb = value;
+                    found |= 8;
+                }
+                "SwapFree" => {
+                    swap_free_kb = value;
+                    found |= 16;
+                }
+                _ => {}
+            }
 
-        let key = match parts.next() {
-            Some(key) => key.trim(),
-            None => continue,
-        };
-
-        let value = match parts.next() {
-            Some(value) => value.trim().trim_matches('"'),
-            None => continue,
-        };
-
-        info.insert(key.to_string(), value.to_string());
+            if found == 31 {
+                break;
+            }
+        }
     }
 
-    info
+    MemInfo {
+        mem_total_kb,
+        mem_free_kb,
+        cached_kb,
+        swap_total_kb,
+        swap_free_kb,
+    }
+}
+
+pub fn parse_os_pretty_name(contents: &str) -> String {
+    for line in contents.lines() {
+        if let Some((key, value)) = line.split_once('=') {
+            if key.trim() == "PRETTY_NAME" {
+                return value.trim().trim_matches('"').to_string();
+            }
+        }
+    }
+    String::new()
+}
+
+pub fn parse_uptime_seconds(contents: &str) -> &str {
+    contents.split_whitespace().next().unwrap_or("0")
 }
 
 pub fn parse_number(value: &str) -> u64 {

@@ -1,26 +1,28 @@
-use sysinfo::{Pid, System};
+use std::fs;
 
-pub fn display_shell_info() {
-    let mut sys = System::new_all();
-    sys.refresh_all();
+fn ppid_of(pid: u32) -> Option<u32> {
+    let status = fs::read_to_string(format!("/proc/{}/status", pid)).ok()?;
+    status
+        .lines()
+        .find(|line| line.starts_with("PPid:"))?
+        .split_whitespace()
+        .nth(1)?
+        .parse()
+        .ok()
+}
 
-    let pid = Pid::from_u32(std::process::id());
-    if let Some(process) = sys.process(pid) {
-        if let Some(ppid) = process.parent() {
-            if let Some(shell_process) = sys.process(ppid) {
-                println!(
-                    "Executed from shell: {}",
-                    shell_process.name().to_string_lossy()
-                );
-                if let Some(terminal_pid) = shell_process.parent() {
-                    if let Some(terminal_process) = sys.process(terminal_pid) {
-                        println!(
-                            "Terminal Application: {}",
-                            terminal_process.name().to_string_lossy()
-                        );
-                    }
-                }
-            }
-        }
-    }
+fn comm_of(pid: u32) -> Option<String> {
+    fs::read_to_string(format!("/proc/{}/comm", pid))
+        .ok()
+        .map(|s| s.trim().to_string())
+}
+
+pub fn shell_info() -> Option<(String, Option<String>)> {
+    let self_pid = std::process::id();
+    let shell_pid = ppid_of(self_pid)?;
+    let shell_name = comm_of(shell_pid)?;
+    let terminal_pid = ppid_of(shell_pid)?;
+    let terminal_name = comm_of(terminal_pid);
+
+    Some((shell_name, terminal_name))
 }

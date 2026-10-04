@@ -1,20 +1,17 @@
 use std::env;
 
 use crate::command::run_command;
-use crate::session::{detect_window_manager, session_type};
 
-pub fn get_displays() -> Vec<String> {
-    let on_wayland = env::var("WAYLAND_DISPLAY").is_ok() || session_type() == "wayland";
-    let on_x11 = !on_wayland && (session_type() == "x11" || env::var("DISPLAY").is_ok());
+pub fn get_displays(session_type: &str, window_manager: Option<&str>) -> Vec<String> {
+    let on_wayland = env::var("WAYLAND_DISPLAY").is_ok() || session_type == "wayland";
+    let on_x11 = !on_wayland && (session_type == "x11" || env::var("DISPLAY").is_ok());
 
     if on_x11 {
         return parse_xrandr_verbose(&run_command("xrandr --verbose").unwrap_or_default());
     }
 
     if on_wayland {
-        let wm = detect_window_manager()
-            .unwrap_or_default()
-            .to_lowercase();
+        let wm = window_manager.unwrap_or("").to_lowercase();
 
         if wm.contains("niri") {
             return parse_niri_outputs(&run_command("niri msg outputs").unwrap_or_default());
@@ -40,15 +37,22 @@ fn parse_xrandr_verbose(output: &str) -> Vec<String> {
             continue;
         }
 
-        let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() < 2 || !parts[1].starts_with("connected") {
+        let mut parts = line.split_whitespace();
+        let name = match parts.next() {
+            Some(name) => name,
+            None => continue,
+        };
+        let conn = match parts.next() {
+            Some(conn) => conn,
+            None => continue,
+        };
+        if !conn.starts_with("connected") {
             continue;
         }
 
-        let name = parts[0];
         let mut resolution = String::new();
 
-        for part in &parts[2..] {
+        for part in parts {
             if let Some(x_pos) = part.find('x') {
                 let after_x = &part[x_pos + 1..];
                 if after_x.find('+').is_some() {
@@ -120,18 +124,6 @@ fn parse_wlr_randr(output: &str) -> Vec<String> {
     let mut current_scale = "1.00".to_string();
     let mut enabled = false;
 
-    fn finalize(name: &str, mode: &str, scale: &str, enabled: bool) -> Option<String> {
-        if !enabled || name.is_empty() {
-            return None;
-        }
-
-        Some(if mode.is_empty() {
-            format!("{}: unknown resolution (scale {})", name, scale)
-        } else {
-            format!("{}: {} (scale {})", name, mode, scale)
-        })
-    }
-
     while let Some(line) = lines.next() {
         if line.starts_with(' ') {
             let trimmed = line.trim();
@@ -160,8 +152,8 @@ fn parse_wlr_randr(output: &str) -> Vec<String> {
                 }
             }
         } else {
-            if let Some(entry) = finalize(&current_name, &current_mode, &current_scale, enabled) {
-                displays.push(entry);
+            if enabled && !current_name.is_empty() {
+                displays.push(format_display(&current_name, &current_mode, &current_scale));
             }
 
             current_name = line.split_whitespace().next().unwrap_or("").to_string();
@@ -171,8 +163,8 @@ fn parse_wlr_randr(output: &str) -> Vec<String> {
         }
     }
 
-    if let Some(entry) = finalize(&current_name, &current_mode, &current_scale, enabled) {
-        displays.push(entry);
+    if enabled && !current_name.is_empty() {
+        displays.push(format_display(&current_name, &current_mode, &current_scale));
     }
 
     displays
@@ -185,23 +177,14 @@ fn parse_niri_outputs(output: &str) -> Vec<String> {
     let mut mode = String::new();
     let mut scale = String::new();
 
-    fn finalize(name: &str, mode: &str, scale: &str) -> Option<String> {
-        if name.is_empty() {
-            return None;
-        }
-
-        Some(format!(
-            "{}: {} (scale {})",
-            name,
-            if mode.is_empty() { "unknown" } else { mode },
-            if scale.is_empty() { "1" } else { scale }
-        ))
-    }
-
     for line in output.lines() {
         if line.starts_with("Output ") {
-            if let Some(entry) = finalize(&name, &mode, &scale) {
-                displays.push(entry);
+            if !name.is_empty() {
+                displays.push(format_display(
+                    &name,
+                    if mode.is_empty() { "unknown" } else { &mode },
+                    if scale.is_empty() { "1" } else { &scale },
+                ));
             }
 
             name = line
@@ -236,8 +219,12 @@ fn parse_niri_outputs(output: &str) -> Vec<String> {
         }
     }
 
-    if let Some(entry) = finalize(&name, &mode, &scale) {
-        displays.push(entry);
+    if !name.is_empty() {
+        displays.push(format_display(
+            &name,
+            if mode.is_empty() { "unknown" } else { &mode },
+            if scale.is_empty() { "1" } else { &scale },
+        ));
     }
 
     displays
@@ -275,13 +262,17 @@ fn parse_hyprctl_monitors(output: &str) -> Vec<String> {
             lines.next();
         }
 
-        displays.push(format!(
-            "{}: {} (scale {})",
-            name,
+        displays.push(format_display(
+            &name,
             if mode.is_empty() { "unknown" } else { &mode },
-            scale
+            &scale,
         ));
     }
 
     displays
+}
+
+#[inline]
+fn format_display(name: &str, mode: &str, scale: &str) -> String {
+    format!("{}: {} (scale {})", name, mode, scale)
 }

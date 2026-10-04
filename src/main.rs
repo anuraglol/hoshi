@@ -1,5 +1,6 @@
 use std::env;
 use std::process::Command;
+use std::thread;
 
 mod command;
 mod display;
@@ -8,73 +9,80 @@ mod session;
 mod shell;
 mod types;
 
-use types::{CpuInfo, MemInfo};
-
-use crate::shell::display_shell_info;
-
 fn main() {
-    let uname = parsers::read_file_str("/proc/sys/kernel/osrelease");
-    let cpuinfo = parsers::read_file_str("/proc/cpuinfo");
-    let meminfo = parsers::read_file_str("/proc/meminfo");
-    let hostname = parsers::read_file_str("/etc/hostname");
-    let osinfo = parsers::read_file_str("/etc/os-release");
-    let uptime = parsers::read_file_str("/proc/uptime");
+    // Fast environment-only lookups first; these are needed to pick the right
+    // display command, so do them before the parallel block.
+    let session_type = session::session_type();
+    let window_manager = session::detect_window_manager();
 
-    let cpu = parsers::parse_colon_file(&cpuinfo, true);
-    let mem = parsers::parse_colon_file(&meminfo, false);
-    let os = parsers::parse_equals_file(&osinfo);
+    // Run all independent I/O-bound work in parallel.
+    let (
+        uname,
+        hostname,
+        os_pretty_name,
+        uptime_seconds,
+        cpu_info,
+        mem_info,
+        fp_count,
+        displays,
+        shell_info,
+    ) = thread::scope(|s| {
+        let uname_handle = s.spawn(|| parsers::read_file_str("/proc/sys/kernel/osrelease"));
+        let hostname_handle = s.spawn(|| parsers::read_file_str("/etc/hostname"));
+        let os_handle = s.spawn(|| {
+            parsers::parse_os_pretty_name(&parsers::read_file_str("/etc/os-release"))
+        });
+        let uptime_handle = s.spawn(|| {
+            let contents = parsers::read_file_str("/proc/uptime");
+            parsers::parse_uptime_seconds(&contents).to_string()
+        });
+        let cpu_handle = s.spawn(|| {
+            parsers::parse_cpu_info(&parsers::read_file_str("/proc/cpuinfo"))
+        });
+        let mem_handle = s.spawn(|| {
+            parsers::parse_mem_info(&parsers::read_file_str("/proc/meminfo"))
+        });
+        let flatpak_handle = s.spawn(|| {
+            let output = Command::new("flatpak").arg("list").output();
+            match output {
+                Ok(output) if output.status.success() => {
+                    String::from_utf8_lossy(&output.stdout)
+                        .lines()
+                        .count()
+                        .saturating_sub(1) as u64
+                }
+                _ => 0,
+            }
+        });
+        let display_handle = s.spawn(|| {
+            display::get_displays(&session_type, window_manager.as_deref())
+        });
+        let shell_handle = s.spawn(|| shell::shell_info());
 
-    let cpu_info = CpuInfo {
-        model_name: cpu.get("model name").cloned().unwrap_or_default(),
-
-        cpu_cores: cpu
-            .get("cpu cores")
-            .and_then(|v| v.parse().ok())
-            .unwrap_or(0),
-    };
-
-    let mem_info = MemInfo {
-        mem_total_kb: mem
-            .get("MemTotal")
-            .map(|v| parsers::parse_number(v))
-            .unwrap_or(0),
-        mem_free_kb: mem
-            .get("MemFree")
-            .map(|v| parsers::parse_number(v))
-            .unwrap_or(0),
-        cached_kb: mem
-            .get("Cached")
-            .map(|v| parsers::parse_number(v))
-            .unwrap_or(0),
-        swap_total_kb: mem
-            .get("SwapTotal")
-            .map(|v| parsers::parse_number(v))
-            .unwrap_or(0),
-        swap_free_kb: mem
-            .get("SwapFree")
-            .map(|v| parsers::parse_number(v))
-            .unwrap_or(0),
-    };
-
-    let mut fp_count: u64 = 0;
-    let fp_output = Command::new("flatpak")
-        .arg("list")
-        .output()
-        .expect("failed to run");
-
-    if fp_output.status.success() {
-        let stdout = String::from_utf8_lossy(&fp_output.stdout);
-        fp_count = stdout.lines().count().saturating_sub(1) as u64;
-    }
+        (
+            uname_handle.join().unwrap(),
+            hostname_handle.join().unwrap(),
+            os_handle.join().unwrap(),
+            uptime_handle.join().unwrap(),
+            cpu_handle.join().unwrap(),
+            mem_handle.join().unwrap(),
+            flatpak_handle.join().unwrap(),
+            display_handle.join().unwrap(),
+            shell_handle.join().unwrap(),
+        )
+    });
 
     println!("hostname: {}", hostname.trim());
     println!("kernel: {}", uname.trim());
-    println!("os: {}", os.get("PRETTY_NAME").cloned().unwrap_or_default());
-    println!(
-        "uptime: {} seconds\n",
-        uptime.split(" ").next().unwrap_or(" ").trim()
-    );
-    display_shell_info();
+    println!("os: {}", os_pretty_name);
+    println!("uptime: {} seconds\n", uptime_seconds.trim());
+
+    if let Some((shell, terminal)) = shell_info {
+        println!("Executed from shell: {}", shell);
+        if let Some(term) = terminal {
+            println!("Terminal Application: {}", term);
+        }
+    }
     println!();
 
     println!("-----CPU-----");
@@ -86,14 +94,13 @@ fn main() {
         "memory: free/total, cached: {}/{}, {}",
         mem_info.mem_free_kb, mem_info.mem_total_kb, mem_info.cached_kb
     );
-
     println!(
         "swap: total, free: {}, {} kB",
         mem_info.swap_total_kb, mem_info.swap_free_kb
     );
 
     println!("\n-----Session / Window Manager-----");
-    println!("session type: {}", session::session_type());
+    println!("session type: {}", session_type);
     println!(
         "desktop: {}",
         env::var("XDG_CURRENT_DESKTOP").unwrap_or_default()
@@ -109,11 +116,10 @@ fn main() {
     );
     println!(
         "wm/compositor: {}",
-        session::detect_window_manager().unwrap_or_else(|| "unknown".to_string())
+        window_manager.as_deref().unwrap_or("unknown")
     );
 
     println!("\n-----Display-----");
-    let displays = display::get_displays();
     if displays.is_empty() {
         println!("no display information available");
     } else {
