@@ -21,7 +21,6 @@ pub fn get_displays(session_type: &str, window_manager: Option<&str>) -> Vec<Str
             return parse_hyprctl_monitors(&run_command("hyprctl monitors").unwrap_or_default());
         }
 
-        // Generic wlroots-based compositor fallback.
         return parse_wlr_randr(&run_command("wlr-randr").unwrap_or_default());
     }
 

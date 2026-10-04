@@ -13,8 +13,6 @@ pub fn detect_window_manager() -> Option<String> {
         "x11" => x11_window_manager(),
         "wayland" => detect_wayland_compositor(),
         _ => {
-            // Fallback: if a Wayland socket exists, treat it as Wayland;
-            // if only an X11 display exists, treat it as X11.
             if env::var("WAYLAND_DISPLAY").is_ok() {
                 detect_wayland_compositor()
             } else if env::var("DISPLAY").is_ok() {

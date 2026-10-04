@@ -10,12 +10,9 @@ mod shell;
 mod types;
 
 fn main() {
-    // Fast environment-only lookups first; these are needed to pick the right
-    // display command, so do them before the parallel block.
     let session_type = session::session_type();
     let window_manager = session::detect_window_manager();
 
-    // Run all independent I/O-bound work in parallel.
     let (
         uname,
         hostname,
@@ -29,34 +26,29 @@ fn main() {
     ) = thread::scope(|s| {
         let uname_handle = s.spawn(|| parsers::read_file_str("/proc/sys/kernel/osrelease"));
         let hostname_handle = s.spawn(|| parsers::read_file_str("/etc/hostname"));
-        let os_handle = s.spawn(|| {
-            parsers::parse_os_pretty_name(&parsers::read_file_str("/etc/os-release"))
-        });
+        let os_handle =
+            s.spawn(|| parsers::parse_os_pretty_name(&parsers::read_file_str("/etc/os-release")));
         let uptime_handle = s.spawn(|| {
             let contents = parsers::read_file_str("/proc/uptime");
             parsers::parse_uptime_seconds(&contents).to_string()
         });
-        let cpu_handle = s.spawn(|| {
-            parsers::parse_cpu_info(&parsers::read_file_str("/proc/cpuinfo"))
-        });
-        let mem_handle = s.spawn(|| {
-            parsers::parse_mem_info(&parsers::read_file_str("/proc/meminfo"))
-        });
+        let cpu_handle =
+            s.spawn(|| parsers::parse_cpu_info(&parsers::read_file_str("/proc/cpuinfo")));
+        let mem_handle =
+            s.spawn(|| parsers::parse_mem_info(&parsers::read_file_str("/proc/meminfo")));
         let flatpak_handle = s.spawn(|| {
             let output = Command::new("flatpak").arg("list").output();
             match output {
-                Ok(output) if output.status.success() => {
-                    String::from_utf8_lossy(&output.stdout)
-                        .lines()
-                        .count()
-                        .saturating_sub(1) as u64
-                }
+                Ok(output) if output.status.success() => String::from_utf8_lossy(&output.stdout)
+                    .lines()
+                    .count()
+                    .saturating_sub(1)
+                    as u64,
                 _ => 0,
             }
         });
-        let display_handle = s.spawn(|| {
-            display::get_displays(&session_type, window_manager.as_deref())
-        });
+        let display_handle =
+            s.spawn(|| display::get_displays(&session_type, window_manager.as_deref()));
         let shell_handle = s.spawn(|| shell::shell_info());
 
         (
