@@ -18,12 +18,18 @@ fn main() {
         hostname,
         os_pretty_name,
         uptime_seconds,
+        current_charge,
+        battery_status,
         cpu_info,
         mem_info,
         fp_count,
         displays,
         shell_info,
     ) = thread::scope(|s| {
+        let current_charge_handle =
+            s.spawn(|| parsers::read_file_str("/sys/class/power_supply/BAT0/capacity"));
+        let battery_status_handle =
+            s.spawn(|| parsers::read_file_str("/sys/class/power_supply/BAT0/status"));
         let uname_handle = s.spawn(|| parsers::read_file_str("/proc/sys/kernel/osrelease"));
         let hostname_handle = s.spawn(|| parsers::read_file_str("/etc/hostname"));
         let os_handle =
@@ -56,6 +62,8 @@ fn main() {
             hostname_handle.join().unwrap(),
             os_handle.join().unwrap(),
             uptime_handle.join().unwrap(),
+            current_charge_handle.join().unwrap(),
+            battery_status_handle.join().unwrap(),
             cpu_handle.join().unwrap(),
             mem_handle.join().unwrap(),
             flatpak_handle.join().unwrap(),
@@ -67,7 +75,8 @@ fn main() {
     println!("hostname: {}", hostname.trim());
     println!("kernel: {}", uname.trim());
     println!("os: {}", os_pretty_name);
-    println!("uptime: {} seconds\n", uptime_seconds.trim());
+    println!("uptime: {} seconds", uptime_seconds.trim());
+    println!("battery: {}%, {}\n", current_charge, battery_status);
 
     if let Some((shell, terminal)) = shell_info {
         println!("Executed from shell: {}", shell);
