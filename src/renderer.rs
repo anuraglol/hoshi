@@ -53,9 +53,9 @@ pub fn display_output(output: &Output) {
     info.push(format!("hostname: {}", hostname.trim()));
     info.push(format!("kernel: {}", uname.trim()));
     info.push(format!("os: {}", os_pretty_name));
-    info.push(format!("uptime: {} seconds", uptime_seconds.trim()));
-    info.push(format!("battery: {}%", current_charge));
-    info.push(format!("bat status: {}", battery_status));
+    info.push(format!("uptime: {}", uptime_seconds.trim()));
+    info.push(format!("battery: {}%", current_charge.trim()));
+    info.push(format!("bat status: {}", battery_status.trim()));
     info.push(String::new());
 
     if let Some((shell, terminal)) = shell_info {
@@ -135,6 +135,6 @@ pub fn display_output(output: &Output) {
         let art = art_lines.get(i).copied().unwrap_or("");
         let stat = info.get(i).map(String::as_str).unwrap_or("");
 
-        println!("{:<width$}    {}", art, stat, width = art_width);
+        println!("{:<width$}        {}", art, stat, width = art_width);
     }
 }

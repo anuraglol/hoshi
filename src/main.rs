@@ -24,7 +24,7 @@ fn main() {
             s.spawn(|| parsers::parse_os_pretty_name(&parsers::read_file_str("/etc/os-release")));
         let uptime_handle = s.spawn(|| {
             let contents = parsers::read_file_str("/proc/uptime");
-            parsers::parse_uptime_seconds(&contents).to_string()
+            parsers::parse_uptime_seconds(&contents)
         });
         let cpu_handle =
             s.spawn(|| parsers::parse_cpu_info(&parsers::read_file_str("/proc/cpuinfo")));

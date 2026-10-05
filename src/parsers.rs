@@ -95,8 +95,52 @@ pub fn parse_os_pretty_name(contents: &str) -> String {
     String::new()
 }
 
-pub fn parse_uptime_seconds(contents: &str) -> &str {
-    contents.split_whitespace().next().unwrap_or("0")
+pub fn parse_uptime_seconds(contents: &str) -> String {
+    let total_seconds = contents
+        .split_whitespace()
+        .next()
+        .and_then(|v| v.parse::<f64>().ok())
+        .unwrap_or(0.0) as u64;
+
+    let mut seconds = total_seconds;
+
+    let years = seconds / 31_536_000;
+    seconds %= 31_536_000;
+
+    let months = seconds / 2_592_000;
+    seconds %= 2_592_000;
+
+    let days = seconds / 86_400;
+    seconds %= 86_400;
+
+    let hours = seconds / 3_600;
+    seconds %= 3_600;
+
+    let minutes = seconds / 60;
+    seconds %= 60;
+
+    let mut parts = Vec::new();
+
+    if years > 0 {
+        parts.push(format!("{} years", years));
+    }
+    if months > 0 {
+        parts.push(format!("{} months", months));
+    }
+    if days > 0 {
+        parts.push(format!("{} days", days));
+    }
+    if hours > 0 {
+        parts.push(format!("{} hours", hours));
+    }
+    if minutes > 0 {
+        parts.push(format!("{} mins", minutes));
+    }
+    if seconds > 0 || parts.is_empty() {
+        parts.push(format!("{} secs", seconds));
+    }
+
+    parts.join(", ")
 }
 
 pub fn parse_number(value: &str) -> u64 {
