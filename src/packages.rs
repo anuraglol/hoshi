@@ -16,9 +16,10 @@ fn count_command_output(cmd: &str) -> Option<u64> {
     }
 }
 
-fn nix_store_references(path: &str) -> Option<u64> {
+fn nix_store_references(paths: &[&str]) -> Option<u64> {
     let output = Command::new("nix-store")
-        .args(["-q", "--references", path])
+        .args(["-q", "--references"])
+        .args(paths)
         .output()
         .ok()?;
 
@@ -32,15 +33,22 @@ fn nix_store_references(path: &str) -> Option<u64> {
 }
 
 fn nix_packages() -> Option<u64> {
-    let mut total = nix_store_references("/run/current-system/sw").unwrap_or(0);
+    let mut paths = vec!["/run/current-system/sw"];
+    let mut user_profile = None;
 
     if let Ok(home) = env::var("HOME") {
-        let user_profile = format!("{home}/.nix-profile");
+        let profile = format!("{home}/.nix-profile");
 
-        if std::path::Path::new(&user_profile).exists() {
-            total += nix_store_references(&user_profile).unwrap_or(0);
+        if std::path::Path::new(&profile).exists() {
+            user_profile = Some(profile);
         }
     }
+
+    if let Some(ref profile) = user_profile {
+        paths.push(profile);
+    }
+
+    let total = nix_store_references(&paths).unwrap_or(0);
 
     if total > 0 { Some(total) } else { None }
 }
