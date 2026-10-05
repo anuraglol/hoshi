@@ -68,12 +68,10 @@ pub fn display_output(output: &Output) {
         info.push(String::new());
     }
 
-    info.push("----- CPU -----".to_string());
     info.push(format!("model: {}", cpu_info.model_name));
     info.push(format!("cores: {}", cpu_info.cpu_cores));
     info.push(String::new());
 
-    info.push("----- Memory -----".to_string());
     info.push(format!(
         "memory: {:.2}GB / {:.2}GB, cached: {:.2}GB",
         mem_info.mem_free, mem_info.mem_total, mem_info.cached
@@ -84,7 +82,6 @@ pub fn display_output(output: &Output) {
     ));
     info.push(String::new());
 
-    info.push("----- Session / Window Manager -----".to_string());
     info.push(format!("session type: {}", session_type));
     info.push(format!(
         "desktop: {}",
@@ -108,8 +105,6 @@ pub fn display_output(output: &Output) {
     ));
     info.push(String::new());
 
-    info.push("----- Display -----".to_string());
-
     if displays.is_empty() {
         info.push("no display information available".to_string());
     } else {
@@ -131,10 +126,12 @@ pub fn display_output(output: &Output) {
 
     let total_lines = art_lines.len().max(info.len());
 
+    println!();
     for i in 0..total_lines {
         let art = art_lines.get(i).copied().unwrap_or("");
         let stat = info.get(i).map(String::as_str).unwrap_or("");
 
         println!("{:<width$}        {}", art, stat, width = art_width);
     }
+    println!();
 }
