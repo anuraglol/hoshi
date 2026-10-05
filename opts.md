@@ -1,40 +1,39 @@
-1.  Parallelize independent reads/commands
-    Your file reads and shell commands don't depend on each other, but they run sequentially. Spawn threads or use rayon/tokio to run these
-    concurrently:
+Profiled 2025-10-05: total ~120ms, entirely bounded by the packages thread.
 
-- /proc/sys/kernel/osrelease, /proc/cpuinfo, /proc/meminfo, /etc/hostname, /etc/os-release, /proc/uptime
-- flatpak list | wc -l
-- display detection commands
+| piece                                    | time         |
+|------------------------------------------|--------------|
+| nix-store -q --references /run/current-system/sw | ~94ms |
+| nix-store -q --references ~/.nix-profile (warm)  | ~30-40ms |
+| flatpak list                             | ~29ms        |
+| everything else (threads + WM detect)    | hidden, ~10ms |
 
-2.  Cache detect_window_manager()
-    It's called twice: once inside display::get_displays() and once in main. Compute it once and pass it around.
+1.  Parallelize inside get_package_counts()
+    Managers run sequentially in ONE thread (flatpak -> pacman -> apt -> nix x2), so main's
+    thread-per-module parallelism is wasted: this thread is the critical path. Spawn one scoped
+    thread per manager so wall time = max(...) not sum(...). (~120ms -> ~95ms)
 
-3.  Stop parsing files early
-    /proc/cpuinfo and /proc/meminfo are huge on big systems. You only need model name, cpu cores, and a few mem keys. Scan lines and return as soon as
-    you find what you need instead of building a full HashMap.
+2.  Merge the two nix-store calls into one invocation
+    `nix-store -q --references pathA pathB` accepts multiple paths. Measured: 63ms vs ~125ms for
+    two calls (one sqlite DB open instead of two). Dedupe lines in Rust to keep the union count.
+    Combined with #1: ~65ms total.
 
-4.  Reduce allocations
+3.  Drop the `flatpak list` spawn, count dirs instead
+    read_dir("/var/lib/flatpak/app") + .../runtime + ~/.local/share/flatpak/{app,runtime} is
+    sub-millisecond vs 29ms for the subprocess.
 
-- Avoid .to_string() everywhere; parse into &str slices where possible.
-- In parse_xrandr_verbose, line.split_whitespace().collect() builds a Vec you mostly don't need—iterate directly.
-- Return Vec<&str> or a small struct instead of formatted Strings from parsers, then format only at print time.
+4.  Count newlines on raw bytes
+    `String::from_utf8_lossy(&output.stdout).lines().count()` allocates + walks the buffer as
+    chars. Use `output.stdout.iter().filter(|&&b| b == b'\n').count()` — alloc-free. Matters for
+    dpkg -l-sized outputs, free everywhere.
 
-5.  Avoid shell indirection for flatpak
-    Command::new("sh").arg("-c").arg("flatpak list | wc -l") spawns a shell. Run flatpak list directly and count its output lines in Rust.
+5.  detect_window_manager() still runs twice
+    Once serially BEFORE thread::scope in main, once AFTER the joins in renderer::display_output
+    (serial tail latency, directly additive). Compute once inside the scope, put it in Output,
+    renderer consumes it. Cheap here (NIRI_SOCKET env fast-path) but on X11 it's two xprop spawns.
 
-6.  Lazily detect the compositor
-    detect_wayland_compositor() runs a chain of run_command calls. Most of the time env vars are enough—move the command checks behind a "none of the
-    env hints matched" branch (you already do env first, good). But also bail out as soon as one succeeds instead of continuing.
+6.  Consolidate the ~8 trivial file-read threads in main into one
+    Reading /etc/hostname etc. takes ~20us each; thread spawn+join costs more than the read.
+    Only becomes visible after #1-#3 land.
 
-7.  Use a small struct instead of HashMap<String, String>
-    For known keys like MemTotal, define struct MemInfo upfront and fill it while parsing, skipping the hashmap entirely.
-
-8.  Avoid repeated session_type() and env::var calls
-    get_displays() calls session_type() and env::var multiple times. Read them once at the top.
-
-9.  Compile-time regex (if you add regex)
-    Not needed here, but if parsing gets more complex, use lazy_static/once_cell regexes instead of recompiling per call.
-
-10. Profile before over-optimizing
-    Run cargo build --release and time it with hyperfine or time. Most of the runtime is probably waiting on external commands, not Rust code—so
-    parallelism (suggestion 1) will give the biggest real-world speedup.
+Expected after #1-#3: ~65ms, floored by the single nix-store call. Going lower means bypassing
+nix-store's sqlite open entirely (rusqlite dep or approximate counting) — not worth it.

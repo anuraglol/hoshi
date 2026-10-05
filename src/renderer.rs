@@ -42,7 +42,7 @@ pub fn display_output(output: &Output) {
         cpu_info,
         mem_info,
         displays,
-        fp_count,
+        packages_info,
     } = output;
 
     let session_type = session::session_type();
@@ -70,8 +70,6 @@ pub fn display_output(output: &Output) {
 
     info.push(format!("model: {}", cpu_info.model_name));
     info.push(format!("cores: {}", cpu_info.cpu_cores));
-    info.push(String::new());
-
     info.push(format!(
         "memory: {:.2}GB / {:.2}GB, cached: {:.2}GB",
         mem_info.mem_free, mem_info.mem_total, mem_info.cached
@@ -103,8 +101,6 @@ pub fn display_output(output: &Output) {
         "wm/compositor: {}",
         window_manager.as_deref().unwrap_or("unknown")
     ));
-    info.push(String::new());
-
     if displays.is_empty() {
         info.push("no display information available".to_string());
     } else {
@@ -114,7 +110,9 @@ pub fn display_output(output: &Output) {
     }
 
     info.push(String::new());
-    info.push(format!("flatpak packages: {}", fp_count));
+    for (manager, count) in packages_info {
+        info.push(format!("{} packages: {}", manager, count));
+    }
 
     let art_lines: Vec<&str> = ASCII_ART.lines().collect();
 

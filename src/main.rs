@@ -1,8 +1,8 @@
-use std::process::Command;
 use std::thread;
 
 mod command;
 mod display;
+mod packages;
 mod parsers;
 mod renderer;
 mod session;
@@ -30,18 +30,12 @@ fn main() {
             s.spawn(|| parsers::parse_cpu_info(&parsers::read_file_str("/proc/cpuinfo")));
         let mem_handle =
             s.spawn(|| parsers::parse_mem_info(&parsers::read_file_str("/proc/meminfo")));
-        let flatpak_handle = s.spawn(|| {
-            let output = Command::new("flatpak").arg("list").output();
-            match output {
-                Ok(output) if output.status.success() => {
-                    String::from_utf8_lossy(&output.stdout).lines().count() as u64
-                }
-                _ => 0,
-            }
-        });
+
         let display_handle =
             s.spawn(|| display::get_displays(&session_type, window_manager.as_deref()));
         let shell_handle = s.spawn(|| shell::shell_info());
+
+        let packages_handle = s.spawn(|| packages::get_package_counts());
 
         types::Output {
             uname: uname_handle.join().unwrap(),
@@ -52,9 +46,9 @@ fn main() {
             battery_status: battery_status_handle.join().unwrap(),
             cpu_info: cpu_handle.join().unwrap(),
             mem_info: mem_handle.join().unwrap(),
-            fp_count: flatpak_handle.join().unwrap(),
             displays: display_handle.join().unwrap(),
             shell_info: shell_handle.join().unwrap(),
+            packages_info: packages_handle.join().unwrap(),
         }
     });
 
