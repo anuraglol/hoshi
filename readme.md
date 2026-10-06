@@ -1,6 +1,6 @@
 ## hoshi - a smol fetch tool written in rust
 
-![demo](image.png)
+![demo](image_1.png)
 
 ## Benchmark
 
