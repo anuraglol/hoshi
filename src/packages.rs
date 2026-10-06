@@ -20,6 +20,7 @@ pub fn get_package_counts() -> Vec<(&'static str, u64)> {
         ("flatpak", "flatpak list"),
         ("pacman", "pacman -Q"),
         ("apt", "dpkg -l"),
+        ("dnf", "dnf list installed"),
     ];
 
     thread::scope(|scope| {
