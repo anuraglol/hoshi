@@ -1,6 +1,5 @@
 use std::thread;
 
-mod command;
 mod packages;
 mod parsers;
 mod renderer;
