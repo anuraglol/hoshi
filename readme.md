@@ -4,13 +4,22 @@
 
 ## Benchmark
 
-Simple execution-time benchmark of the release binary (`./target/release/hoshi`).
+Simple execution-time benchmark of the release binary (`./target/release/hoshi`) on performance mode.
 
 - **Runs:** 50
-- **Average:** 32.87 ms
-- **Median:** 32.75 ms
-- **Min:** 31.24 ms
-- **Max:** 35.00 ms
+- **Average:** 17.74 ms
+- **Median:** 17.81 ms
+- **Min:** 16.55 ms
+- **Max:** 18.78 ms
+
+### System Specs
+
+- **OS:** NixOS 26.05 (Yarara)
+- **Kernel:** 7.2.6
+- **CPU:** AMD Ryzen 7 7735HS with Radeon Graphics
+- **Cores/Threads:** 8 cores / 16 threads
+- **Memory:** 16 GiB
+- **CPU Governor:** performance
 
 Benchmarked with:
 
