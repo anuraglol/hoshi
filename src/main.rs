@@ -1,7 +1,6 @@
 use std::thread;
 
 mod command;
-mod display;
 mod packages;
 mod parsers;
 mod renderer;
@@ -10,9 +9,6 @@ mod shell;
 mod types;
 
 fn main() {
-    let session_type = session::session_type();
-    let window_manager = session::detect_window_manager();
-
     let output = thread::scope(|s| {
         let current_charge_handle =
             s.spawn(|| parsers::read_file_str("/sys/class/power_supply/BAT0/capacity"));
@@ -31,8 +27,6 @@ fn main() {
         let mem_handle =
             s.spawn(|| parsers::parse_mem_info(&parsers::read_file_str("/proc/meminfo")));
 
-        let display_handle =
-            s.spawn(|| display::get_displays(&session_type, window_manager.as_deref()));
         let shell_handle = s.spawn(|| shell::shell_info());
 
         let packages_handle = s.spawn(|| packages::get_package_counts());
@@ -46,7 +40,6 @@ fn main() {
             battery_status: battery_status_handle.join().unwrap(),
             cpu_info: cpu_handle.join().unwrap(),
             mem_info: mem_handle.join().unwrap(),
-            displays: display_handle.join().unwrap(),
             shell_info: shell_handle.join().unwrap(),
             packages_info: packages_handle.join().unwrap(),
         }

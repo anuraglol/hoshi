@@ -41,12 +41,10 @@ pub fn display_output(output: &Output) {
         shell_info,
         cpu_info,
         mem_info,
-        displays,
         packages_info,
     } = output;
 
     let session_type = session::session_type();
-    let window_manager = session::detect_window_manager();
 
     let mut info = Vec::new();
 
@@ -54,8 +52,11 @@ pub fn display_output(output: &Output) {
     info.push(format!("kernel: {}", uname.trim()));
     info.push(format!("os: {}", os_pretty_name));
     info.push(format!("uptime: {}", uptime_seconds.trim()));
-    info.push(format!("battery: {}%", current_charge.trim()));
-    info.push(format!("bat status: {}", battery_status.trim()));
+    info.push(format!(
+        "battery: {}% ({})",
+        current_charge.trim(),
+        battery_status.trim()
+    ));
     info.push(String::new());
 
     if let Some((shell, terminal)) = shell_info {
@@ -85,36 +86,16 @@ pub fn display_output(output: &Output) {
         "desktop: {}",
         env::var("XDG_CURRENT_DESKTOP").unwrap_or_default()
     ));
-    info.push(format!(
-        "desktop session: {}",
-        env::var("DESKTOP_SESSION").unwrap_or_default()
-    ));
-    info.push(format!(
-        "DISPLAY: {}",
-        env::var("DISPLAY").unwrap_or_default()
-    ));
-    info.push(format!(
-        "WAYLAND_DISPLAY: {}",
-        env::var("WAYLAND_DISPLAY").unwrap_or_default()
-    ));
-    info.push(format!(
-        "wm/compositor: {}",
-        window_manager.as_deref().unwrap_or("unknown")
-    ));
-    if displays.is_empty() {
-        info.push("no display information available".to_string());
-    } else {
-        for display in displays {
-            info.push(display.to_string());
-        }
-    }
 
     info.push(String::new());
     for (manager, count) in packages_info {
         info.push(format!("{} packages: {}", manager, count));
     }
 
-    let art_lines: Vec<&str> = ASCII_ART.lines().collect();
+    let art_lines: Vec<&str> = ASCII_ART
+        .lines()
+        .skip_while(|line| line.is_empty())
+        .collect();
 
     let art_width = art_lines
         .iter()
@@ -122,12 +103,20 @@ pub fn display_output(output: &Output) {
         .max()
         .unwrap_or(0);
 
-    let total_lines = art_lines.len().max(info.len());
+    let (total_lines, offset) = if art_lines.len() >= info.len() {
+        (art_lines.len(), (art_lines.len() - info.len()) / 2)
+    } else {
+        (info.len(), 0)
+    };
 
     println!();
     for i in 0..total_lines {
         let art = art_lines.get(i).copied().unwrap_or("");
-        let stat = info.get(i).map(String::as_str).unwrap_or("");
+        let stat = if i >= offset && i - offset < info.len() {
+            info[i - offset].as_str()
+        } else {
+            ""
+        };
 
         println!("{:<width$}        {}", art, stat, width = art_width);
     }

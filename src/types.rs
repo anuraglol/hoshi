@@ -20,7 +20,6 @@ pub struct Output {
     pub battery_status: String,
     pub cpu_info: CpuInfo,
     pub mem_info: MemInfo,
-    pub displays: Vec<String>,
     pub shell_info: Option<(String, Option<String>)>,
     pub packages_info: Vec<(&'static str, u64)>,
 }
