@@ -109,18 +109,18 @@ pub fn display_output(output: &Output) {
         cpu_info.cpu_cores
     ));
     info.push(format!(
-        "{}: {:.2}GB / {:.2}GB, {}: {:.2}GB",
+        "{}: {:.2}GB / {:.2}GB ({:.0}%)",
         label("memory", no_color),
         mem_info.mem_total - mem_info.mem_free,
         mem_info.mem_total,
-        label("cached", no_color),
-        mem_info.cached
+        (((mem_info.mem_total - mem_info.mem_free) / (mem_info.mem_total)) * (100 as f64))
     ));
     info.push(format!(
-        "{}: {:.2}GB / {:.2}GB",
+        "{}: {:.2}GB / {:.2}GB ({:.0}%)",
         label("swap", no_color),
         mem_info.swap_total - mem_info.swap_free,
-        mem_info.swap_total
+        mem_info.swap_total,
+        (((mem_info.swap_total - mem_info.swap_free) / mem_info.swap_total) * (100 as f64))
     ));
     info.push(format!(
         "{}: {:.2}GB / {:.2}GB ({}%)",

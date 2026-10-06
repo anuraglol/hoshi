@@ -70,7 +70,6 @@ pub fn parse_cpu_info(contents: &str) -> CpuInfo {
 pub fn parse_mem_info(contents: &str) -> MemInfo {
     let mut mem_total = 0f64;
     let mut mem_free = 0f64;
-    let mut cached = 0f64;
     let mut swap_total = 0f64;
     let mut swap_free = 0f64;
     let mut found = 0u8;
@@ -87,10 +86,6 @@ pub fn parse_mem_info(contents: &str) -> MemInfo {
                 "MemAvailable" => {
                     mem_free = value;
                     found |= 2;
-                }
-                "Cached" => {
-                    cached = value;
-                    found |= 4;
                 }
                 "SwapTotal" => {
                     swap_total = value;
@@ -112,7 +107,6 @@ pub fn parse_mem_info(contents: &str) -> MemInfo {
     MemInfo {
         mem_total,
         mem_free,
-        cached,
         swap_total,
         swap_free,
     }

@@ -6,7 +6,6 @@ pub struct CpuInfo {
 pub struct MemInfo {
     pub mem_total: f64,
     pub mem_free: f64,
-    pub cached: f64,
     pub swap_total: f64,
     pub swap_free: f64,
 }
