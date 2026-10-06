@@ -2,6 +2,7 @@
 name = "hoshi"
 version = "0.1.0"
 edition = "2024"
+repository = "https://github.com/anuraglol/hoshi"
 
 [dependencies]
 sqlite = "0.37.3"
@@ -10,3 +11,8 @@ sqlite = "0.37.3"
 lto = "fat"
 codegen-units = 1
 panic = "abort"
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
