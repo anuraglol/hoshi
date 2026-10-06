@@ -2,6 +2,23 @@ use crate::session;
 use crate::types::Output;
 use std::env;
 
+const RESET: &str = "\x1b[0m";
+const BOLD: &str = "\x1b[1m";
+const CYAN: &str = "\x1b[36m";
+const BLUE: &str = "\x1b[34m";
+
+fn paint(text: &str, color: &str, no_color: bool) -> String {
+    if no_color {
+        text.to_string()
+    } else {
+        format!("{}{}{}", color, text, RESET)
+    }
+}
+
+fn label(text: &str, no_color: bool) -> String {
+    paint(text, &format!("{BOLD}{CYAN}"), no_color)
+}
+
 const ASCII_ART: &str = r#"
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠠⠀⠤⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢊⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣀⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
@@ -31,6 +48,7 @@ const ASCII_ART: &str = r#"
 "#;
 
 pub fn display_output(output: &Output) {
+    let no_color = env::var("NO_COLOR").is_ok_and(|v| !v.is_empty());
     let Output {
         hostname,
         uname,
@@ -48,48 +66,81 @@ pub fn display_output(output: &Output) {
 
     let mut info = Vec::new();
 
-    info.push(format!("hostname: {}", hostname.trim()));
-    info.push(format!("kernel: {}", uname.trim()));
-    info.push(format!("os: {}", os_pretty_name));
-    info.push(format!("uptime: {}", uptime_seconds.trim()));
     info.push(format!(
-        "battery: {}% ({})",
+        "{}: {}",
+        label("hostname", no_color),
+        hostname.trim()
+    ));
+    info.push(format!("{}: {}", label("kernel", no_color), uname.trim()));
+    info.push(format!("{}: {}", label("os", no_color), os_pretty_name));
+    info.push(format!(
+        "{}: {}",
+        label("uptime", no_color),
+        uptime_seconds.trim()
+    ));
+
+    info.push(format!(
+        "{}: {}% ({})",
+        label("battery", no_color),
         current_charge.trim(),
         battery_status.trim()
     ));
     info.push(String::new());
 
     if let Some((shell, terminal)) = shell_info {
-        info.push(format!("shell: {}", shell));
+        info.push(format!("{}: {}", label("shell", no_color), shell));
 
         if let Some(term) = terminal {
-            info.push(format!("terminal: {}", term));
+            info.push(format!("{}: {}", label("terminal", no_color), term));
         }
 
         info.push(String::new());
     }
 
-    info.push(format!("model: {}", cpu_info.model_name));
-    info.push(format!("cores: {}", cpu_info.cpu_cores));
     info.push(format!(
-        "memory: {:.2}GB / {:.2}GB, cached: {:.2}GB",
-        mem_info.mem_free, mem_info.mem_total, mem_info.cached
+        "{}: {}",
+        label("model", no_color),
+        cpu_info.model_name
     ));
     info.push(format!(
-        "swap: {:.2}GB / {:.2}GB",
-        mem_info.swap_free, mem_info.swap_total
+        "{}: {}",
+        label("cores", no_color),
+        cpu_info.cpu_cores
+    ));
+    info.push(format!(
+        "{}: {:.2}GB / {:.2}GB, {}: {:.2}GB",
+        label("memory", no_color),
+        mem_info.mem_free,
+        mem_info.mem_total,
+        label("cached", no_color),
+        mem_info.cached
+    ));
+    info.push(format!(
+        "{}: {:.2}GB / {:.2}GB",
+        label("swap", no_color),
+        mem_info.swap_free,
+        mem_info.swap_total
     ));
     info.push(String::new());
 
-    info.push(format!("session type: {}", session_type));
     info.push(format!(
-        "desktop: {}",
+        "{}: {}",
+        label("session type", no_color),
+        session_type
+    ));
+    info.push(format!(
+        "{}: {}",
+        label("desktop", no_color),
         env::var("XDG_CURRENT_DESKTOP").unwrap_or_default()
     ));
 
-    info.push(String::new());
-    for (manager, count) in packages_info {
-        info.push(format!("{} packages: {}", manager, count));
+    if !packages_info.is_empty() {
+        let package_str = packages_info
+            .iter()
+            .map(|(manager, count)| format!("{}({})", count, paint(manager, BLUE, no_color)))
+            .collect::<Vec<_>>()
+            .join(", ");
+        info.push(format!("{}: {}", label("packages", no_color), package_str));
     }
 
     let art_lines: Vec<&str> = ASCII_ART

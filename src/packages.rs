@@ -19,6 +19,7 @@ pub fn get_package_counts() -> Vec<(&'static str, u64)> {
     let command_managers = [
         ("flatpak", "flatpak list"),
         ("pacman", "pacman -Q"),
+        ("aur", "pacman -Qm"),
         ("apt", "dpkg -l"),
         ("dnf", "dnf list installed"),
     ];
