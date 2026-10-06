@@ -1,7 +1,41 @@
-use crate::types::{CpuInfo, MemInfo};
+use std::process::Command;
+
+use crate::types::{CpuInfo, DiskInfo, MemInfo};
+
+fn run_command(cmd: &str) -> Option<String> {
+    let mut parts = cmd.split_whitespace();
+    let program = parts.next()?;
+    let output = Command::new(program).args(parts).output().ok()?;
+
+    if output.status.success() {
+        Some(String::from_utf8_lossy(&output.stdout).to_string())
+    } else {
+        None
+    }
+}
 
 pub fn read_file_str(path: &str) -> String {
     std::fs::read_to_string(path).expect("should have been able to read the file")
+}
+
+pub fn parse_disk_info() -> Option<DiskInfo> {
+    let output = run_command("df /")?;
+
+    let line = output.lines().nth(1)?;
+    let mut parts = line.split_whitespace();
+
+    let _filesystem = parts.next()?;
+    let size = parts.next()?.parse::<u64>().ok()? as f64 / 1024.0 / 1024.0;
+    let used = parts.next()?.parse::<u64>().ok()? as f64 / 1024.0 / 1024.0;
+    let _available = parts.next()?;
+    let used_per = parts.next()?;
+    parts.next()?;
+
+    Some(DiskInfo {
+        size,
+        used,
+        used_per: used_per[..used_per.len() - 1].parse().ok()?,
+    })
 }
 
 pub fn parse_cpu_info(contents: &str) -> CpuInfo {
@@ -117,7 +151,6 @@ pub fn parse_uptime_seconds(contents: &str) -> String {
     seconds %= 3_600;
 
     let minutes = seconds / 60;
-    seconds %= 60;
 
     let mut parts = Vec::new();
 
@@ -135,9 +168,6 @@ pub fn parse_uptime_seconds(contents: &str) -> String {
     }
     if minutes > 0 {
         parts.push(format!("{} mins", minutes));
-    }
-    if seconds > 0 || parts.is_empty() {
-        parts.push(format!("{} secs", seconds));
     }
 
     parts.join(", ")

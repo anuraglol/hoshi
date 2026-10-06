@@ -60,6 +60,7 @@ pub fn display_output(output: &Output) {
         cpu_info,
         mem_info,
         packages_info,
+        disk_info,
     } = output;
 
     let session_type = session::session_type();
@@ -120,6 +121,13 @@ pub fn display_output(output: &Output) {
         label("swap", no_color),
         mem_info.swap_free,
         mem_info.swap_total
+    ));
+    info.push(format!(
+        "{}: {:.2}GB / {:.2}GB ({}%)",
+        label("disk", no_color),
+        disk_info.used,
+        disk_info.size,
+        disk_info.used_per
     ));
     info.push(String::new());
 

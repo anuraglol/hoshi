@@ -11,6 +11,12 @@ pub struct MemInfo {
     pub swap_free: f64,
 }
 
+pub struct DiskInfo {
+    pub size: f64,
+    pub used: f64,
+    pub used_per: u8,
+}
+
 pub struct Output {
     pub uname: String,
     pub hostname: String,
@@ -22,4 +28,5 @@ pub struct Output {
     pub mem_info: MemInfo,
     pub shell_info: Option<(String, Option<String>)>,
     pub packages_info: Vec<(&'static str, u64)>,
+    pub disk_info: DiskInfo,
 }

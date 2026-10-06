@@ -29,6 +29,13 @@ fn main() {
         let shell_handle = s.spawn(|| shell::shell_info());
 
         let packages_handle = s.spawn(|| packages::get_package_counts());
+        let disk_handle = s.spawn(|| {
+            parsers::parse_disk_info().unwrap_or(types::DiskInfo {
+                size: 0.0,
+                used: 0.0,
+                used_per: 0,
+            })
+        });
 
         types::Output {
             uname: uname_handle.join().unwrap(),
@@ -41,6 +48,7 @@ fn main() {
             mem_info: mem_handle.join().unwrap(),
             shell_info: shell_handle.join().unwrap(),
             packages_info: packages_handle.join().unwrap(),
+            disk_info: disk_handle.join().unwrap(),
         }
     });
 
