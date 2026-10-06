@@ -111,7 +111,7 @@ pub fn display_output(output: &Output) {
     info.push(format!(
         "{}: {:.2}GB / {:.2}GB, {}: {:.2}GB",
         label("memory", no_color),
-        mem_info.mem_free,
+        mem_info.mem_total - mem_info.mem_free,
         mem_info.mem_total,
         label("cached", no_color),
         mem_info.cached
@@ -119,7 +119,7 @@ pub fn display_output(output: &Output) {
     info.push(format!(
         "{}: {:.2}GB / {:.2}GB",
         label("swap", no_color),
-        mem_info.swap_free,
+        mem_info.swap_total - mem_info.swap_free,
         mem_info.swap_total
     ));
     info.push(format!(

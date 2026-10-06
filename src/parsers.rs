@@ -84,7 +84,7 @@ pub fn parse_mem_info(contents: &str) -> MemInfo {
                     mem_total = value;
                     found |= 1;
                 }
-                "MemFree" => {
+                "MemAvailable" => {
                     mem_free = value;
                     found |= 2;
                 }
