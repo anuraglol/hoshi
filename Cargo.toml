@@ -5,7 +5,7 @@ edition = "2024"
 repository = "https://github.com/anuraglol/hoshi"
 
 [dependencies]
-sqlite = "0.37.3"
+sqlite = { version = "0.37.3", features = ["bundled"] }
 
 [profile.release]
 lto = "fat"
