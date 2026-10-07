@@ -54,13 +54,12 @@ pub fn display_output(output: &Output) {
         uname,
         os_pretty_name,
         uptime_seconds,
-        current_charge,
-        battery_status,
         shell_info,
         cpu_info,
         mem_info,
         packages_info,
         disk_info,
+        bat_info,
     } = output;
 
     let session_type = session::session_type();
@@ -83,8 +82,8 @@ pub fn display_output(output: &Output) {
     info.push(format!(
         "{}: {}% ({})",
         label("battery", no_color),
-        current_charge.trim(),
-        battery_status.trim()
+        bat_info.current_charge.trim(),
+        bat_info.battery_status.trim()
     ));
     info.push(String::new());
 

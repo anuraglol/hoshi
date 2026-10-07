@@ -16,13 +16,17 @@ pub struct DiskInfo {
     pub used_per: u8,
 }
 
+pub struct BatInfo {
+    pub current_charge: String,
+    pub battery_status: String,
+}
+
 pub struct Output {
     pub uname: String,
     pub hostname: String,
     pub os_pretty_name: String,
+    pub bat_info: BatInfo,
     pub uptime_seconds: String,
-    pub current_charge: String,
-    pub battery_status: String,
     pub cpu_info: CpuInfo,
     pub mem_info: MemInfo,
     pub shell_info: Option<(String, Option<String>)>,
