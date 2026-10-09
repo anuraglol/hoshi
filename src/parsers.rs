@@ -52,6 +52,7 @@ pub fn parse_cpu_info(contents: &str) -> CpuInfo {
             } else if cpu_cores == 0 && key == "cpu cores" {
                 if let Ok(n) = value.split_whitespace().next().unwrap_or(value).parse() {
                     cpu_cores = n;
+                    break;
                 }
             }
 
