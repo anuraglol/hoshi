@@ -67,3 +67,24 @@ pub fn get_wsl_battery_info() -> BatInfo {
         battery_status: String::new(),
     }
 }
+
+pub fn get_os_age() -> String {
+    let output = Command::new("stat").args(["-c", "%W", "/"]).output();
+
+    if let Ok(output) = output {
+        if output.status.success() {
+            if let Ok(timestamp) = String::from_utf8(output.stdout) {
+                if let Ok(created) = timestamp.trim().parse::<u64>() {
+                    let now = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs();
+
+                    return format!("{} days", (now - created) / 86400);
+                }
+            }
+        }
+    }
+
+    String::from("unknown")
+}

@@ -25,6 +25,7 @@ pub struct Output {
     pub uname: String,
     pub hostname: String,
     pub os_pretty_name: String,
+    pub os_age: String,
     pub bat_info: BatInfo,
     pub uptime_seconds: String,
     pub cpu_info: CpuInfo,

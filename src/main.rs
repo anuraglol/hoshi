@@ -55,6 +55,8 @@ fn main() {
             })
         });
 
+        let os_age_handle = s.spawn(|| utils::get_os_age());
+
         types::Output {
             uname: uname_handle.join().unwrap(),
             hostname: hostname_handle.join().unwrap(),
@@ -65,6 +67,7 @@ fn main() {
             shell_info: shell_handle.join().unwrap(),
             packages_info: packages_handle.join().unwrap(),
             disk_info: disk_handle.join().unwrap(),
+            os_age: os_age_handle.join().unwrap(),
 
             bat_info: match battery_job {
                 BatteryJob::Wsl(handle) => handle.join().unwrap(),

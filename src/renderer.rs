@@ -60,6 +60,7 @@ pub fn display_output(output: &Output) {
         packages_info,
         disk_info,
         bat_info,
+        os_age,
     } = output;
 
     let session_type = session::session_type();
@@ -73,6 +74,7 @@ pub fn display_output(output: &Output) {
     ));
     info.push(format!("{}: {}", label("kernel", no_color), uname.trim()));
     info.push(format!("{}: {}", label("os", no_color), os_pretty_name));
+    info.push(format!("{}: {}", label("os age", no_color), os_age));
     info.push(format!(
         "{}: {}",
         label("uptime", no_color),
